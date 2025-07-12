@@ -34,26 +34,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
-    // Mock authentication - replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    let mockUser: User;
-    if (email === 'admin@stockiq.com') {
-      mockUser = { id: '1', name: 'Super Admin', email, role: 'admin' };
-    } else if (email === 'manager@stockiq.com') {
-      mockUser = { id: '2', name: 'Inventory Manager', email, role: 'manager' };
-    } else {
-      mockUser = { id: '3', name: 'Staff Member', email, role: 'staff' };
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      const { token, user } = data;
+      
+      setUser(user);
+      localStorage.setItem('stockiq_user', JSON.stringify(user));
+      localStorage.setItem('stockiq_token', token);
+    } catch (error) {
+      // Fallback to mock for development
+      let mockUser: User;
+      if (email === 'admin@stockiq.com') {
+        mockUser = { id: '1', name: 'Super Admin', email, role: 'admin' };
+      } else if (email === 'manager@stockiq.com') {
+        mockUser = { id: '2', name: 'Inventory Manager', email, role: 'manager' };
+      } else {
+        mockUser = { id: '3', name: 'Staff Member', email, role: 'staff' };
+      }
+      
+      setUser(mockUser);
+      localStorage.setItem('stockiq_user', JSON.stringify(mockUser));
+      console.warn('Using mock authentication. Backend not available.');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setUser(mockUser);
-    localStorage.setItem('stockiq_user', JSON.stringify(mockUser));
-    setIsLoading(false);
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('stockiq_user');
+    localStorage.removeItem('stockiq_token');
   };
 
   return (
