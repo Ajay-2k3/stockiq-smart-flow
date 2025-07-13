@@ -3,16 +3,22 @@ import { useApi } from '@/hooks/useApi';
 import { UserCard } from '@/components/ui/user-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function UserManagement() {
   const { get, post, put, del } = useApi();
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingUser, setEditingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -21,8 +27,16 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      const data = await get('/users');
-      setUsers(data);
+      const response = await get('/users');
+
+      // Ensure response is an array
+      const userArray = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      setUsers(userArray);
     } catch (error) {
       toast.error('Failed to fetch users');
     } finally {
@@ -49,7 +63,7 @@ export default function UserManagement() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
-    
+
     try {
       await del(`/users/${id}`);
       toast.success('User deleted successfully');
@@ -59,10 +73,12 @@ export default function UserManagement() {
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = Array.isArray(users)
+    ? users.filter((user) =>
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">Loading...</div>;
@@ -83,8 +99,10 @@ export default function UserManagement() {
             <DialogHeader>
               <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
             </DialogHeader>
-            {/* UserForm component would go here */}
-            <div className="p-4">User form placeholder</div>
+            {/* TODO: Replace with actual <UserForm /> */}
+            <div className="p-4 text-muted-foreground text-sm border rounded bg-muted">
+              User form placeholder – connect your <code>UserForm</code> here.
+            </div>
           </DialogContent>
         </Dialog>
       </div>

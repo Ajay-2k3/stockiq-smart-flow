@@ -11,7 +11,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import StaffDashboard from "./pages/staff/StaffDashboard";
 import InventoryPage from "./pages/inventory/InventoryPage";
-import SuppliersPage from "./pages/suppliers/SuppliersPage";
+import SuppliersPage from "./pages/suppliers/SuppliersPage"; // ✅ default import
 import UserManagement from "./pages/users/UserManagement";
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
 import AlertsPage from "./pages/alerts/AlertsPage";
@@ -30,15 +30,13 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
-            
-            {/* Redirect root to login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
-            
-            {/* Protected Admin Routes */}
+
+            {/* Admin Routes */}
             <Route
               path="/admin/*"
               element={
-                <ProtectedRoute allowedRoles={['admin']}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <AppLayout>
                     <Routes>
                       <Route index element={<AdminDashboard />} />
@@ -52,12 +50,12 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            
-            {/* Protected Manager Routes */}
+
+            {/* Manager Routes */}
             <Route
               path="/manager/*"
               element={
-                <ProtectedRoute allowedRoles={['manager']}>
+                <ProtectedRoute allowedRoles={["manager"]}>
                   <AppLayout>
                     <Routes>
                       <Route index element={<ManagerDashboard />} />
@@ -70,12 +68,12 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            
-            {/* Protected Staff Routes */}
+
+            {/* Staff Routes */}
             <Route
               path="/staff/*"
               element={
-                <ProtectedRoute allowedRoles={['staff']}>
+                <ProtectedRoute allowedRoles={["staff"]}>
                   <AppLayout>
                     <Routes>
                       <Route index element={<StaffDashboard />} />
@@ -86,8 +84,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            
-            {/* Catch-all route */}
+
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

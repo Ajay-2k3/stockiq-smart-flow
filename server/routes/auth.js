@@ -60,18 +60,32 @@ router.post('/login',
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({ errors: errors.array() });
       }
 
       const { email, password } = req.body;
+      console.log(`🔐 Login attempt for email: ${email}`);
+      console.log(`📥 Submitted password: "${password}"`);
 
       const user = await User.findOne({ email });
-      if (!user || !user.isActive) {
+      if (!user) {
+        console.log('❌ No user found with email:', email);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
+      if (!user.isActive) {
+        console.log('⚠️ User account is inactive:', email);
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      console.log('✅ User found:', user.email, '| role:', user.role);
+
       const isMatch = await user.comparePassword(password);
+      console.log(`🔍 Password match for ${email}: ${isMatch}`);
+
       if (!isMatch) {
+        console.log('❌ Password does not match for:', email);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
@@ -81,6 +95,7 @@ router.post('/login',
         { expiresIn: '24h' }
       );
 
+      console.log(`✅ JWT issued for user: ${email}`);
       res.json({
         token,
         user: {
@@ -91,10 +106,12 @@ router.post('/login',
         }
       });
     } catch (error) {
+      console.error('🔥 Server error during login:', error.message);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
 );
+
 
 // Get current user
 router.get('/me', auth, async (req, res) => {

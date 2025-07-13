@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 export default function InventoryPage() {
   const { user } = useAuth();
   const { get, post, put, del } = useApi();
-  const [inventory, setInventory] = useState([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingItem, setEditingItem] = useState(null);
@@ -27,9 +27,20 @@ export default function InventoryPage() {
   const fetchInventory = async () => {
     try {
       const data = await get('/inventory');
-      setInventory(data);
+      console.log('📦 Inventory fetched:', data);
+
+      // Fix: ensure data is an array
+      if (Array.isArray(data)) {
+        setInventory(data);
+      } else if (Array.isArray(data?.inventory)) {
+        setInventory(data.inventory);
+      } else {
+        console.error('❌ Unexpected inventory response:', data);
+        setInventory([]); // fallback
+      }
     } catch (error) {
       toast.error('Failed to fetch inventory');
+      console.error('Fetch error:', error);
     } finally {
       setLoading(false);
     }
@@ -49,6 +60,7 @@ export default function InventoryPage() {
       setEditingItem(null);
     } catch (error) {
       toast.error('Failed to save item');
+      console.error('Save error:', error);
     }
   };
 
@@ -61,13 +73,16 @@ export default function InventoryPage() {
       fetchInventory();
     } catch (error) {
       toast.error('Failed to delete item');
+      console.error('Delete error:', error);
     }
   };
 
-  const filteredInventory = inventory.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInventory = Array.isArray(inventory)
+    ? inventory.filter(item =>
+        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">Loading...</div>;

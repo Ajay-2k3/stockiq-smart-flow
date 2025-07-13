@@ -42,10 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+      
       });
 
       const data = await response.json();
-
+      console.log('Login response:', data);
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }

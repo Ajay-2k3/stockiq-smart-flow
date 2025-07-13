@@ -33,23 +33,40 @@ app.use('/api/analytics', require('./routes/analytics'));
 // Auto Admin Seeding
 const seedAdmin = async () => {
   try {
-    const adminExists = await User.findOne({ role: 'admin' });
-    if (!adminExists) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      await User.create({
+    const admin = await User.findOne({ email: 'admin@stockiq.com' });
+
+    if (admin) {
+      // ✅ Let schema handle hashing
+      admin.password = 'admin123';
+      await admin.save();
+
+      console.log("🔁 Admin password reset:");
+      console.log(`🆔 ID     : ${admin._id}`);
+      console.log(`📧 Email  : ${admin.email}`);
+      console.log(`🔐 Password: admin123`);
+      console.log(`👤 Role   : ${admin.role}`);
+    } else {
+      // 🆕 Create new admin (raw password)
+      const newAdmin = await User.create({
         name: "Super Admin",
         email: "admin@stockiq.com",
-        password: hashedPassword,
+        password: 'admin123', // raw
         role: "admin"
       });
-      console.log("✅ Admin created: admin@stockiq.com / admin123");
-    } else {
-      console.log("ℹ️ Admin already exists");
+
+      console.log("✅ Admin created:");
+      console.log(`🆔 ID     : ${newAdmin._id}`);
+      console.log(`📧 Email  : ${newAdmin.email}`);
+      console.log(`🔐 Password: admin123`);
+      console.log(`👤 Role   : admin`);
     }
   } catch (error) {
     console.error("❌ Error seeding admin:", error);
   }
 };
+
+
+
 
 // MongoDB Connection
 const connectDB = async () => {

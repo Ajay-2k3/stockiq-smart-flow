@@ -4,7 +4,13 @@ import { SupplierCard } from '@/components/ui/supplier-card';
 import { SupplierForm } from '@/components/forms/SupplierForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,16 +26,25 @@ export default function SuppliersPage() {
     fetchSuppliers();
   }, []);
 
-  const fetchSuppliers = async () => {
-    try {
-      const data = await get('/suppliers');
-      setSuppliers(data);
-    } catch (error) {
-      toast.error('Failed to fetch suppliers');
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchSuppliers = async () => {
+  try {
+    const res = await get('/suppliers');
+
+    const supplierList = Array.isArray(res)
+      ? res
+      : res?.data && Array.isArray(res.data)
+      ? res.data
+      : [];
+      console.log('📦 Suppliers fetched:', supplierList);
+
+    setSuppliers(supplierList);
+  } catch (error) {
+    toast.error('Failed to fetch suppliers');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleSave = async (formData: any) => {
     try {
@@ -50,7 +65,7 @@ export default function SuppliersPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this supplier?')) return;
-    
+
     try {
       await del(`/suppliers/${id}`);
       toast.success('Supplier deleted successfully');
@@ -60,7 +75,7 @@ export default function SuppliersPage() {
     }
   };
 
-  const filteredSuppliers = suppliers.filter(supplier =>
+  const filteredSuppliers = suppliers.filter((supplier) =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -108,8 +123,8 @@ export default function SuppliersPage() {
           <SupplierCard
             key={supplier._id}
             supplier={supplier}
-            onEdit={(supplier) => {
-              setEditingSupplier(supplier);
+            onEdit={(s) => {
+              setEditingSupplier(s);
               setIsDialogOpen(true);
             }}
             onDelete={handleDelete}

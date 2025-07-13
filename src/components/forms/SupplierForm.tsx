@@ -32,6 +32,7 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
     },
     notes: ''
   });
+
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { post, put } = useApi();
@@ -65,16 +66,10 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
     try {
       if (supplier) {
         await put(`/suppliers/${supplier._id}`, formData);
-        toast({
-          title: "Success",
-          description: "Supplier updated successfully",
-        });
+        toast({ title: "Success", description: "Supplier updated successfully" });
       } else {
         await post('/suppliers', formData);
-        toast({
-          title: "Success",
-          description: "Supplier created successfully",
-        });
+        toast({ title: "Success", description: "Supplier created successfully" });
       }
       onSave(formData);
     } catch (error: any) {
@@ -101,13 +96,8 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
   };
 
   const categories = [
-    'Electronics',
-    'Furniture',
-    'Office Supplies',
-    'Tools',
-    'Raw Materials',
-    'Packaging',
-    'Services'
+    'Electronics', 'Furniture', 'Office Supplies', 'Tools',
+    'Raw Materials', 'Packaging', 'Services'
   ];
 
   const paymentTerms = [
@@ -123,7 +113,7 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       onSubmit={handleSubmit}
-      className="space-y-6"
+      className="max-h-[80vh] overflow-y-auto space-y-6 p-4"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -185,9 +175,12 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
 
         <div className="space-y-2">
           <Label htmlFor="rating">Rating</Label>
-          <Select value={formData.rating.toString()} onValueChange={(value) => handleChange('rating', parseInt(value))}>
+          <Select
+            value={formData.rating.toString()}
+            onValueChange={(value) => handleChange('rating', parseInt(value))}
+          >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Select rating" />
             </SelectTrigger>
             <SelectContent>
               {[1, 2, 3, 4, 5].map((rating) => (
@@ -201,9 +194,12 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
 
         <div className="space-y-2">
           <Label htmlFor="paymentTerms">Payment Terms</Label>
-          <Select value={formData.paymentTerms} onValueChange={(value) => handleChange('paymentTerms', value)}>
+          <Select
+            value={formData.paymentTerms}
+            onValueChange={(value) => handleChange('paymentTerms', value)}
+          >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Select terms" />
             </SelectTrigger>
             <SelectContent>
               {paymentTerms.map((term) => (
@@ -278,7 +274,7 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
         />
       </div>
 
-      <div className="flex justify-end space-x-2">
+      <div className="flex justify-end space-x-2 sticky bottom-0 bg-white pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>

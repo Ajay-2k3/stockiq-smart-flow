@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/useApi';
 
@@ -26,29 +32,34 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
     supplier: '',
     location: ''
   });
-  const [suppliers, setSuppliers] = useState([]);
+
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { get, post, put } = useApi();
 
   useEffect(() => {
-    // Fetch suppliers
     const fetchSuppliers = async () => {
       try {
-        const data = await get('/suppliers');
-        setSuppliers(data);
+        const res = await get('/suppliers');
+        const supplierList = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+          ? res.data
+          : [];
+
+        setSuppliers(supplierList);
       } catch (error) {
         toast({
-          title: "Error",
-          description: "Failed to fetch suppliers",
-          variant: "destructive"
+          title: 'Error',
+          description: 'Failed to fetch suppliers',
+          variant: 'destructive'
         });
       }
     };
 
     fetchSuppliers();
 
-    // Populate form if editing
     if (item) {
       setFormData({
         name: item.name || '',
@@ -72,22 +83,22 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
       if (item) {
         await put(`/inventory/${item._id}`, formData);
         toast({
-          title: "Success",
-          description: "Inventory item updated successfully",
+          title: 'Success',
+          description: 'Inventory item updated successfully'
         });
       } else {
         await post('/inventory', formData);
         toast({
-          title: "Success",
-          description: "Inventory item created successfully",
+          title: 'Success',
+          description: 'Inventory item created successfully'
         });
       }
       onSave(formData);
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to save inventory item",
-        variant: "destructive"
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to save inventory item',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -95,7 +106,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
   };
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const categories = [
@@ -159,11 +170,18 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
               <SelectValue placeholder="Select supplier" />
             </SelectTrigger>
             <SelectContent>
-              {suppliers.map((supplier: any) => (
-                <SelectItem key={supplier._id} value={supplier._id}>
-                  {supplier.name}
-                </SelectItem>
-              ))}
+                {Array.isArray(suppliers) && suppliers.length > 0 ? (
+                  suppliers.map((supplier: any) => (
+                    <SelectItem key={supplier._id} value={supplier._id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem disabled value="no-suppliers">
+                    No suppliers available
+                  </SelectItem>
+                )}
+
             </SelectContent>
           </Select>
         </div>
