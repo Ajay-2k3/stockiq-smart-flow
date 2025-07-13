@@ -6,15 +6,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useInventory, useSuppliers } from '@/hooks/useApi';
+import { useApi } from '@/hooks/useApi';
 
 interface InventoryFormProps {
   item?: any;
-  onSuccess: () => void;
+  onSave: (data: any) => void;
   onCancel: () => void;
 }
 
-export function InventoryForm({ item, onSuccess, onCancel }: InventoryFormProps) {
+export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -29,15 +29,14 @@ export function InventoryForm({ item, onSuccess, onCancel }: InventoryFormProps)
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const inventory = useInventory();
-  const supplierApi = useSuppliers();
+  const { get, post, put } = useApi();
 
   useEffect(() => {
     // Fetch suppliers
     const fetchSuppliers = async () => {
       try {
-        const response = await supplierApi.getAll();
-        setSuppliers(response.data.suppliers);
+        const data = await get('/suppliers');
+        setSuppliers(data);
       } catch (error) {
         toast({
           title: "Error",
@@ -71,19 +70,19 @@ export function InventoryForm({ item, onSuccess, onCancel }: InventoryFormProps)
 
     try {
       if (item) {
-        await inventory.update(item._id, formData);
+        await put(`/inventory/${item._id}`, formData);
         toast({
           title: "Success",
           description: "Inventory item updated successfully",
         });
       } else {
-        await inventory.create(formData);
+        await post('/inventory', formData);
         toast({
           title: "Success",
           description: "Inventory item created successfully",
         });
       }
-      onSuccess();
+      onSave(formData);
     } catch (error: any) {
       toast({
         title: "Error",

@@ -21,91 +21,12 @@ export const useApi = () => {
     }
   }, [user]);
 
-  return api;
-};
-
-// Generic hook for API requests
-export const useApiRequest = <T>(
-  url: string,
-  options?: AxiosRequestConfig,
-  dependencies: any[] = []
-) => {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const api = useApi();
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await api(url, options);
-      setData(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, dependencies);
-
-  return { data, loading, error, refetch: fetchData };
-};
-
-// Inventory hooks
-export const useInventory = () => {
-  const api = useApi();
-  
   return {
-    getAll: (params?: any) => api.get('/inventory', { params }),
-    getById: (id: string) => api.get(`/inventory/${id}`),
-    create: (data: any) => api.post('/inventory', data),
-    update: (id: string, data: any) => api.put(`/inventory/${id}`, data),
-    delete: (id: string) => api.delete(`/inventory/${id}`)
-  };
-};
-
-// Supplier hooks
-export const useSuppliers = () => {
-  const api = useApi();
-  
-  return {
-    getAll: (params?: any) => api.get('/suppliers', { params }),
-    getById: (id: string) => api.get(`/suppliers/${id}`),
-    create: (data: any) => api.post('/suppliers', data),
-    update: (id: string, data: any) => api.put(`/suppliers/${id}`, data),
-    delete: (id: string) => api.delete(`/suppliers/${id}`)
-  };
-};
-
-// User hooks
-export const useUsers = () => {
-  const api = useApi();
-  
-  return {
-    getAll: (params?: any) => api.get('/users', { params }),
-    getById: (id: string) => api.get(`/users/${id}`),
-    create: (data: any) => api.post('/auth/register', data),
-    update: (id: string, data: any) => api.put(`/users/${id}`, data),
-    deactivate: (id: string) => api.patch(`/users/${id}/deactivate`),
-    activate: (id: string) => api.patch(`/users/${id}/activate`)
-  };
-};
-
-// Alert hooks
-export const useAlerts = () => {
-  const api = useApi();
-  
-  return {
-    getAll: (params?: any) => api.get('/alerts', { params }),
-    getStats: () => api.get('/alerts/stats'),
-    create: (data: any) => api.post('/alerts', data),
-    markRead: (id: string) => api.patch(`/alerts/${id}/read`),
-    resolve: (id: string) => api.patch(`/alerts/${id}/resolve`),
-    delete: (id: string) => api.delete(`/alerts/${id}`)
+    get: (url: string) => api.get(url).then(res => res.data),
+    post: (url: string, data?: any) => api.post(url, data).then(res => res.data),
+    put: (url: string, data?: any) => api.put(url, data).then(res => res.data),
+    del: (url: string) => api.delete(url).then(res => res.data),
+    patch: (url: string, data?: any) => api.patch(url, data).then(res => res.data)
   };
 };
 

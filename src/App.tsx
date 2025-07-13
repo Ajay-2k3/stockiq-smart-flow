@@ -10,6 +10,12 @@ import Login from "./pages/auth/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import StaffDashboard from "./pages/staff/StaffDashboard";
+import InventoryPage from "./pages/inventory/InventoryPage";
+import SuppliersPage from "./pages/suppliers/SuppliersPage";
+import UserManagement from "./pages/users/UserManagement";
+import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
+import AlertsPage from "./pages/alerts/AlertsPage";
+import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,11 +42,11 @@ const App = () => (
                   <AppLayout>
                     <Routes>
                       <Route index element={<AdminDashboard />} />
-                      <Route path="inventory" element={<div>Admin Inventory</div>} />
-                      <Route path="suppliers" element={<div>Admin Suppliers</div>} />
-                      <Route path="users" element={<div>User Management</div>} />
-                      <Route path="analytics" element={<div>Admin Analytics</div>} />
-                      <Route path="alerts" element={<div>Admin Alerts</div>} />
+                      <Route path="inventory" element={<InventoryPage />} />
+                      <Route path="suppliers" element={<SuppliersPage />} />
+                      <Route path="users" element={<UserManagement />} />
+                      <Route path="analytics" element={<AnalyticsDashboard />} />
+                      <Route path="alerts" element={<AlertsPage />} />
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -55,10 +61,10 @@ const App = () => (
                   <AppLayout>
                     <Routes>
                       <Route index element={<ManagerDashboard />} />
-                      <Route path="inventory" element={<div>Manager Inventory</div>} />
-                      <Route path="suppliers" element={<div>Manager Suppliers</div>} />
-                      <Route path="analytics" element={<div>Manager Analytics</div>} />
-                      <Route path="alerts" element={<div>Manager Alerts</div>} />
+                      <Route path="inventory" element={<InventoryPage />} />
+                      <Route path="suppliers" element={<SuppliersPage />} />
+                      <Route path="analytics" element={<AnalyticsDashboard />} />
+                      <Route path="alerts" element={<AlertsPage />} />
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -73,8 +79,8 @@ const App = () => (
                   <AppLayout>
                     <Routes>
                       <Route index element={<StaffDashboard />} />
-                      <Route path="inventory" element={<div>Staff Inventory</div>} />
-                      <Route path="alerts" element={<div>Staff Alerts</div>} />
+                      <Route path="inventory" element={<InventoryPage />} />
+                      <Route path="alerts" element={<AlertsPage />} />
                     </Routes>
                   </AppLayout>
                 </ProtectedRoute>
@@ -82,6 +88,7 @@ const App = () => (
             />
             
             {/* Catch-all route */}
+            <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

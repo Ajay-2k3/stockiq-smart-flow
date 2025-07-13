@@ -6,15 +6,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useSuppliers } from '@/hooks/useApi';
+import { useApi } from '@/hooks/useApi';
 
 interface SupplierFormProps {
   supplier?: any;
-  onSuccess: () => void;
+  onSave: (data: any) => void;
   onCancel: () => void;
 }
 
-export function SupplierForm({ supplier, onSuccess, onCancel }: SupplierFormProps) {
+export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     contactPerson: '',
@@ -34,7 +34,7 @@ export function SupplierForm({ supplier, onSuccess, onCancel }: SupplierFormProp
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const supplierApi = useSuppliers();
+  const { post, put } = useApi();
 
   useEffect(() => {
     if (supplier) {
@@ -64,19 +64,19 @@ export function SupplierForm({ supplier, onSuccess, onCancel }: SupplierFormProp
 
     try {
       if (supplier) {
-        await supplierApi.update(supplier._id, formData);
+        await put(`/suppliers/${supplier._id}`, formData);
         toast({
           title: "Success",
           description: "Supplier updated successfully",
         });
       } else {
-        await supplierApi.create(formData);
+        await post('/suppliers', formData);
         toast({
           title: "Success",
           description: "Supplier created successfully",
         });
       }
-      onSuccess();
+      onSave(formData);
     } catch (error: any) {
       toast({
         title: "Error",

@@ -24,18 +24,23 @@ router.get('/', auth, async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await Alert.countDocuments(query);
-
-    res.json({
-      alerts,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalItems: total
-      }
-    });
+    res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Mark all alerts as read
+router.put('/mark-all-read', auth, async (req, res) => {
+  try {
+    await Alert.updateMany(
+      { isRead: false },
+      { isRead: true }
+    );
+    
+    res.json({ message: 'All alerts marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

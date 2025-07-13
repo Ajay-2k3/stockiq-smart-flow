@@ -28,6 +28,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/analytics', require('./routes/analytics'));
 
 // Auto Admin Seeding
 const seedAdmin = async () => {
