@@ -29,14 +29,9 @@ export default function SuppliersPage() {
 const fetchSuppliers = async () => {
   try {
     const res = await get('/suppliers');
+    console.log("📦 API:", res);
 
-    const supplierList = Array.isArray(res)
-      ? res
-      : res?.data && Array.isArray(res.data)
-      ? res.data
-      : [];
-      console.log('📦 Suppliers fetched:', supplierList);
-
+    const supplierList = Array.isArray(res?.suppliers) ? res.suppliers : [];
     setSuppliers(supplierList);
   } catch (error) {
     toast.error('Failed to fetch suppliers');
@@ -44,6 +39,7 @@ const fetchSuppliers = async () => {
     setLoading(false);
   }
 };
+
 
 
   const handleSave = async (formData: any) => {

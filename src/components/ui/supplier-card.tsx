@@ -8,7 +8,13 @@ interface Supplier {
   name: string;
   email: string;
   phone: string;
-  address: string;
+  address: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
 }
 
 interface SupplierCardProps {
@@ -21,6 +27,16 @@ export const SupplierCard = ({ supplier, onEdit, onDelete }: SupplierCardProps) 
   const { user } = useAuth();
   const canEdit = user?.role === 'admin' || user?.role === 'manager';
   const canDelete = user?.role === 'admin';
+
+  const formattedAddress = [
+    supplier.address?.street,
+    supplier.address?.city,
+    supplier.address?.state,
+    supplier.address?.zipCode,
+    supplier.address?.country
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -36,7 +52,9 @@ export const SupplierCard = ({ supplier, onEdit, onDelete }: SupplierCardProps) 
           <Phone className="h-4 w-4" />
           {supplier.phone}
         </div>
-        <p className="text-sm text-muted-foreground">{supplier.address}</p>
+        {formattedAddress && (
+          <p className="text-sm text-muted-foreground">{formattedAddress}</p>
+        )}
         {(canEdit || canDelete) && (
           <div className="flex gap-2 pt-2">
             {canEdit && onEdit && (

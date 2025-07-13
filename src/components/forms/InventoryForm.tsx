@@ -42,8 +42,8 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
     const fetchSuppliers = async () => {
       try {
         const res = await get('/suppliers');
-        const supplierList = Array.isArray(res)
-          ? res
+        const supplierList = Array.isArray(res?.suppliers)
+          ? res.suppliers
           : Array.isArray(res?.data)
           ? res.data
           : [];
@@ -66,18 +66,26 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
         sku: item.sku || '',
         description: item.description || '',
         category: item.category || '',
-        quantity: item.quantity || 0,
-        reorderLevel: item.reorderLevel || 10,
-        unitPrice: item.unitPrice || 0,
+        quantity: Number(item.quantity) || 0,
+        reorderLevel: Number(item.reorderLevel) || 10,
+        unitPrice: Number(item.unitPrice) || 0,
         supplier: item.supplier?._id || '',
         location: item.location || ''
       });
     }
   }, [item]);
 
+  const handleChange = (field: string, value: any) => {
+    const numericFields = ['quantity', 'reorderLevel', 'unitPrice'];
+    const castedValue = numericFields.includes(field) ? Number(value) : value;
+    setFormData((prev) => ({ ...prev, [field]: castedValue }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    console.log('Submitting formData:', formData); // Debug
 
     try {
       if (item) {
@@ -95,18 +103,22 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
       }
       onSave(formData);
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.message || 'Failed to save inventory item',
-        variant: 'destructive'
-      });
+      if (error.response?.data?.errors) {
+        toast({
+          title: 'Validation Error',
+          description: error.response.data.errors.map((e: any) => e.msg).join(', '),
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: error.response?.data?.message || 'Failed to save inventory item',
+          variant: 'destructive'
+        });
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const categories = [
@@ -170,18 +182,17 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
               <SelectValue placeholder="Select supplier" />
             </SelectTrigger>
             <SelectContent>
-                {Array.isArray(suppliers) && suppliers.length > 0 ? (
-                  suppliers.map((supplier: any) => (
-                    <SelectItem key={supplier._id} value={supplier._id}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem disabled value="no-suppliers">
-                    No suppliers available
+              {suppliers.length > 0 ? (
+                suppliers.map((supplier: any) => (
+                  <SelectItem key={supplier._id} value={supplier._id}>
+                    {supplier.name}
                   </SelectItem>
-                )}
-
+                ))
+              ) : (
+                <SelectItem disabled value="no-suppliers">
+                  No suppliers available
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -193,7 +204,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
             type="number"
             min="0"
             value={formData.quantity}
-            onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 0)}
+            onChange={(e) => handleChange('quantity', e.target.value)}
             required
           />
         </div>
@@ -205,7 +216,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
             type="number"
             min="0"
             value={formData.reorderLevel}
-            onChange={(e) => handleChange('reorderLevel', parseInt(e.target.value) || 0)}
+            onChange={(e) => handleChange('reorderLevel', e.target.value)}
             required
           />
         </div>
@@ -218,7 +229,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
             min="0"
             step="0.01"
             value={formData.unitPrice}
-            onChange={(e) => handleChange('unitPrice', parseFloat(e.target.value) || 0)}
+            onChange={(e) => handleChange('unitPrice', e.target.value)}
             required
           />
         </div>
