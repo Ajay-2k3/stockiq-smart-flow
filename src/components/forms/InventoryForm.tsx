@@ -9,10 +9,15 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/useApi';
+
+/* ------------------------------------------------------------------ */
+/*  SWC can’t parse <motion.form>. Create a normal component alias     */
+/* ------------------------------------------------------------------ */
+const MotionForm = motion.form;
 
 interface InventoryFormProps {
   item?: any;
@@ -21,6 +26,7 @@ interface InventoryFormProps {
 }
 
 export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
+  /* -------------------- state -------------------- */
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -28,32 +34,29 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
     category: '',
     quantity: 0,
     reorderLevel: 10,
-    unitPrice: 0,
+    unitPrice: 0, // UI label; mapped to price
     supplier: '',
-    location: ''
+    location: '',
   });
-
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
   const { toast } = useToast();
   const { get, post, put } = useApi();
 
+  /* -------------------- fetch suppliers + preload item -------------------- */
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
         const res = await get('/suppliers');
-        const supplierList = Array.isArray(res?.suppliers)
-          ? res.suppliers
-          : Array.isArray(res?.data)
-          ? res.data
-          : [];
-
-        setSuppliers(supplierList);
-      } catch (error) {
+        setSuppliers(
+          Array.isArray(res?.suppliers) ? res.suppliers : res?.data ?? []
+        );
+      } catch {
         toast({
           title: 'Error',
           description: 'Failed to fetch suppliers',
-          variant: 'destructive'
+          variant: 'destructive',
         });
       }
     };
@@ -62,65 +65,63 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
 
     if (item) {
       setFormData({
-        name: item.name || '',
-        sku: item.sku || '',
-        description: item.description || '',
-        category: item.category || '',
-        quantity: Number(item.quantity) || 0,
-        reorderLevel: Number(item.reorderLevel) || 10,
-        unitPrice: Number(item.unitPrice) || 0,
-        supplier: item.supplier?._id || '',
-        location: item.location || ''
+        name: item.name ?? '',
+        sku: item.sku ?? '',
+        description: item.description ?? '',
+        category: item.category ?? '',
+        quantity: Number(item.quantity) ?? 0,
+        reorderLevel: Number(item.reorderLevel) ?? 10,
+        unitPrice: Number(item.price ?? item.unitPrice) ?? 0,
+        supplier: item.supplier?._id ?? '',
+        location: item.location ?? '',
       });
     }
   }, [item]);
 
-  const handleChange = (field: string, value: any) => {
-    const numericFields = ['quantity', 'reorderLevel', 'unitPrice'];
-    const castedValue = numericFields.includes(field) ? Number(value) : value;
-    setFormData((prev) => ({ ...prev, [field]: castedValue }));
-  };
+  /* -------------------- helpers -------------------- */
+  const numeric = ['quantity', 'reorderLevel', 'unitPrice'];
+  const handleChange = (field: string, value: any) =>
+    setFormData((p) => ({
+      ...p,
+      [field]: numeric.includes(field) ? Number(value) : value,
+    }));
 
+  /* -------------------- submit -------------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    console.log('Submitting formData:', formData); // Debug
+    /* strip empty strings & map unitPrice → price */
+    const payload: any = {};
+    Object.entries(formData).forEach(([k, v]) => {
+      if (v === '' || v === null) return;
+      if (k === 'unitPrice') payload.price = v;
+      else payload[k] = v;
+    });
 
     try {
       if (item) {
-        await put(`/inventory/${item._id}`, formData);
-        toast({
-          title: 'Success',
-          description: 'Inventory item updated successfully'
-        });
+        await put(`/inventory/${item._id}`, payload);
+        toast({ title: 'Success', description: 'Item updated successfully' });
       } else {
-        await post('/inventory', formData);
-        toast({
-          title: 'Success',
-          description: 'Inventory item created successfully'
-        });
+        await post('/inventory', payload);
+        toast({ title: 'Success', description: 'Item created successfully' });
       }
-      onSave(formData);
-    } catch (error: any) {
-      if (error.response?.data?.errors) {
-        toast({
-          title: 'Validation Error',
-          description: error.response.data.errors.map((e: any) => e.msg).join(', '),
-          variant: 'destructive'
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: error.response?.data?.message || 'Failed to save inventory item',
-          variant: 'destructive'
-        });
-      }
+      onSave(payload);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.errors
+          ?.map((e: any) => e.msg)
+          .join(', ') ||
+        err?.response?.data?.message ||
+        'Failed to save inventory item';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  /* -------------------- constants -------------------- */
   const categories = [
     'Electronics',
     'Furniture',
@@ -128,17 +129,21 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
     'Tools',
     'Raw Materials',
     'Finished Goods',
-    'Spare Parts'
+    'Spare Parts',
   ];
 
+  /* -------------------- UI -------------------- */
   return (
-    <motion.form
+    <MotionForm
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       onSubmit={handleSubmit}
       className="space-y-6"
+      aria-describedby={undefined} /* removes Dialog warning */
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* grid */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        {/* Product Name */}
         <div className="space-y-2">
           <Label htmlFor="name">Product Name *</Label>
           <Input
@@ -149,43 +154,54 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
           />
         </div>
 
+        {/* SKU */}
         <div className="space-y-2">
           <Label htmlFor="sku">SKU *</Label>
           <Input
             id="sku"
             value={formData.sku}
-            onChange={(e) => handleChange('sku', e.target.value.toUpperCase())}
+            onChange={(e) =>
+              handleChange('sku', e.target.value.toUpperCase())
+            }
             required
           />
         </div>
 
+        {/* Category */}
         <div className="space-y-2">
           <Label htmlFor="category">Category *</Label>
-          <Select value={formData.category} onValueChange={(value) => handleChange('category', value)}>
+          <Select
+            value={formData.category}
+            onValueChange={(v) => handleChange('category', v)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
+        {/* Supplier */}
         <div className="space-y-2">
           <Label htmlFor="supplier">Supplier *</Label>
-          <Select value={formData.supplier} onValueChange={(value) => handleChange('supplier', value)}>
+          <Select
+            value={formData.supplier}
+            onValueChange={(v) => handleChange('supplier', v)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select supplier" />
             </SelectTrigger>
             <SelectContent>
-              {suppliers.length > 0 ? (
-                suppliers.map((supplier: any) => (
-                  <SelectItem key={supplier._id} value={supplier._id}>
-                    {supplier.name}
+              {suppliers.length ? (
+                suppliers.map((s: any) => (
+                  <SelectItem key={s._id} value={s._id}>
+                    {s.name}
                   </SelectItem>
                 ))
               ) : (
@@ -197,6 +213,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
           </Select>
         </div>
 
+        {/* Quantity */}
         <div className="space-y-2">
           <Label htmlFor="quantity">Quantity *</Label>
           <Input
@@ -209,6 +226,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
           />
         </div>
 
+        {/* Re‑order Level */}
         <div className="space-y-2">
           <Label htmlFor="reorderLevel">Reorder Level *</Label>
           <Input
@@ -221,6 +239,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
           />
         </div>
 
+        {/* Unit Price */}
         <div className="space-y-2">
           <Label htmlFor="unitPrice">Unit Price *</Label>
           <Input
@@ -234,6 +253,7 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
           />
         </div>
 
+        {/* Location */}
         <div className="space-y-2">
           <Label htmlFor="location">Location</Label>
           <Input
@@ -245,18 +265,19 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
         </div>
       </div>
 
+      {/* Description */}
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
+          rows={3}
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
-          placeholder="Product description..."
-          rows={3}
         />
       </div>
 
-      <div className="flex justify-end space-x-2">
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
@@ -264,6 +285,6 @@ export function InventoryForm({ item, onSave, onCancel }: InventoryFormProps) {
           {loading ? 'Saving...' : item ? 'Update Item' : 'Create Item'}
         </Button>
       </div>
-    </motion.form>
+    </MotionForm>
   );
 }

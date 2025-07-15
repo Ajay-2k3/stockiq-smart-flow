@@ -1,22 +1,17 @@
 const express = require('express');
 const Inventory = require('../models/Inventory');
-const Supplier = require('../models/Supplier');
+const Supplier  = require('../models/Supplier');
 const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-/**
- * GET /api/analytics
- * Auth: admin | manager
- *
- * Response
- * ├─ inventoryStats: { totalItems, lowStockItems, totalValue, trends[] }
- * └─ supplierStats: { totalSuppliers, topSuppliers[] }
- */
-router.get('/', auth, authorize('admin', 'manager'), async (req, res) => {
+/* =================================================================== */
+/*  GET /api/analytics  – admin / manager                              */
+/* =================================================================== */
+router.get('/', auth, authorize('admin', 'manager', 'staff'), async (req, res) => {
   try {
     /* ------------------------------------------------------------
-       1)  Inventory totals
+       1)  Inventory totals + low stock
     ------------------------------------------------------------ */
     const inventoryTotalsPipeline = [
       {
@@ -33,7 +28,19 @@ router.get('/', auth, authorize('admin', 'manager'), async (req, res) => {
     ];
 
     /* ------------------------------------------------------------
-       2)  Supplier ranking (top 5 by itemCount)
+       1‑b)  Items updated today
+    ------------------------------------------------------------ */
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const itemsUpdatedTodayPipeline = [
+      { $match: { updatedAt: { $gte: startOfToday } } },
+      { $group: { _id: null, count: { $sum: 1 } } },
+      { $project: { _id: 0, count: 1 } },
+    ];
+
+    /* ------------------------------------------------------------
+       2)  Supplier ranking (top 5)
     ------------------------------------------------------------ */
     const supplierStatsPipeline = [
       {
@@ -44,31 +51,22 @@ router.get('/', auth, authorize('admin', 'manager'), async (req, res) => {
           as: 'items',
         },
       },
-      {
-        $project: {
-          name: 1,
-          itemCount: { $size: '$items' },
-        },
-      },
+      { $project: { name: 1, itemCount: { $size: '$items' } } },
       { $sort: { itemCount: -1 } },
       { $limit: 5 },
     ];
 
     /* ------------------------------------------------------------
-       3)  Inventory trends – last 6 calendar months
-           (based on the month each SKU was added)
+       3)  Trend – last 6 calendar months
     ------------------------------------------------------------ */
     const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5); // today minus 5 → six months total
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
 
     const trendsPipeline = [
       { $match: { createdAt: { $gte: sixMonthsAgo } } },
       {
         $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-          },
+          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
           quantity: { $sum: '$quantity' },
         },
       },
@@ -76,52 +74,47 @@ router.get('/', auth, authorize('admin', 'manager'), async (req, res) => {
     ];
 
     /* ------------------------------------------------------------
-       Run all three pipelines in parallel
+       Run all in parallel
     ------------------------------------------------------------ */
     const [
-      [inventoryTotals = { totalItems: 0, lowStockItems: 0, totalValue: 0 }],
+      [totals = { totalItems: 0, lowStockItems: 0, totalValue: 0 }],
+      [{ count: itemsUpdatedToday = 0 } = { count: 0 }],
       topSuppliers,
       rawTrends,
       totalSuppliers,
     ] = await Promise.all([
       Inventory.aggregate(inventoryTotalsPipeline),
+      Inventory.aggregate(itemsUpdatedTodayPipeline),
       Supplier.aggregate(supplierStatsPipeline),
       Inventory.aggregate(trendsPipeline),
       Supplier.countDocuments(),
     ]);
 
     /* ------------------------------------------------------------
-       Post‑process trends → [{ month: 'Jan 2025', quantity: … }, …]
+       Fill 6‑month trend gaps
     ------------------------------------------------------------ */
-    const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-
-    // Fill any missing months with 0 so the chart is continuous
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const trends = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}`; // e.g. "2025-7"
-      const bucket = rawTrends.find(
-        (t) => `${t._id.year}-${t._id.month}` === key,
-      );
+      const key = `${d.getFullYear()}-${d.getMonth()+1}`;
+      const bucket = rawTrends.find(t => `${t._id.year}-${t._id.month}` === key);
       trends.push({
-        month: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
+        month: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
         quantity: bucket ? bucket.quantity : 0,
       });
     }
 
     /* ------------------------------------------------------------
-       Send response
+       Respond
     ------------------------------------------------------------ */
     res.json({
-      inventoryStats: { ...inventoryTotals, trends },
-      supplierStats: { totalSuppliers, topSuppliers },
+      inventoryStats: { ...totals, itemsUpdatedToday, trends },
+      supplierStats : { totalSuppliers, topSuppliers },
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

@@ -4,12 +4,17 @@ const User = require('../models/User');
 const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
-// Create user (Admin only)
+
+/* ==================================================================== */
+/*  POST /api/users  – Create user (admin only)                         */
+/* ==================================================================== */
 router.post(
   '/',
+  auth,
+  authorize('admin'),
   [
     body('name').notEmpty().withMessage('Name is required'),
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('email').isEmail().withMessage('Valid e‑mail is required'),
     body('password')
       .isLength({ min: 6 })
       .withMessage('Password must be at least 6 characters'),
@@ -17,163 +22,149 @@ router.post(
       .isIn(['admin', 'manager', 'staff'])
       .withMessage('Role must be admin, manager, or staff'),
   ],
-  auth,
-  authorize('admin'),
   async (req, res) => {
-    // 1 ️⃣ Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password, role } = req.body;
+    const { email } = req.body;
+
+    /* 1️⃣  Prevent duplicate e‑mail */
+    if (await User.exists({ email })) {
+      return res.status(409).json({ message: 'A user with that e‑mail already exists' });
+    }
 
     try {
-      // 2 ️⃣ Prevent duplicate e‑mail
-      const existing = await User.findOne({ email });
-      if (existing) {
-        return res
-          .status(409)
-          .json({ message: 'A user with that e‑mail already exists' });
-      }
-
-      // 3 ️⃣ Hash password
-      const bcrypt = require('bcryptjs');
-      const hashed = await bcrypt.hash(password, 10);
-
-      // 4 ️⃣ Create
+      /* 2️⃣  Create – let pre‑save hook hash password */
       const user = await User.create({
-        name,
-        email,
-        password: hashed,
-        role,
-        createdBy: req.user.id, // you store the admin who created it
+        ...req.body,            // password is plain here
+        createdBy: req.user.id,
       });
 
-      // 5 ️⃣ Return new user (omit password)
-      const { password: _, ...safeUser } = user.toObject();
-      res.status(201).json(safeUser);
+      /* 3️⃣  Return user without password */
+      const { password, ...safeUser } = user.toObject();
+      return res.status(201).json(safeUser);
     } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
+      return res.status(500).json({ message: 'Server error', error: err.message });
     }
   }
 );
 
-// Get all users (Admin only)
+/* ==================================================================== */
+/*  DELETE /api/users/:id  – Remove user (admin only)                   */
+/* ==================================================================== */
+router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+/* ==================================================================== */
+/*  GET /api/users  – List users (admin only)                           */
+/* ==================================================================== */
 router.get('/', auth, authorize('admin'), async (req, res) => {
   try {
     const { page = 1, limit = 10, role, active } = req.query;
-    
-    let query = {};
+
+    const query = {};
     if (role) query.role = role;
     if (active !== undefined) query.isActive = active === 'true';
 
     const users = await User.find(query)
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .skip((+page - 1) * +limit)
+      .limit(+limit);
 
     const total = await User.countDocuments(query);
 
-    res.json({
+    return res.json({
       users,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalItems: total
-      }
+        currentPage: +page,
+        totalPages: Math.ceil(total / +limit),
+        totalItems: total,
+      },
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// Get single user
+/* ==================================================================== */
+/*  GET /api/users/:id  – Single user (admin)                           */
+/* ==================================================================== */
 router.get('/:id', auth, authorize('admin'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .populate('createdBy', 'name');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const user = await User.findById(req.params.id).populate('createdBy', 'name');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return res.json(user);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// Update user
-router.put('/:id',
-  [
-    body('name').optional().notEmpty().withMessage('Name cannot be empty'),
-    body('email').optional().isEmail().withMessage('Valid email is required'),
-    body('role').optional().isIn(['admin', 'manager', 'staff']).withMessage('Valid role is required')
-  ],
+/* ==================================================================== */
+/*  PUT /api/users/:id  – Update user (admin)                           */
+/* ==================================================================== */
+router.put(
+  '/:id',
   auth,
   authorize('admin'),
+  [
+    body('name').optional().notEmpty(),
+    body('email').optional().isEmail(),
+    body('role').optional().isIn(['admin', 'manager', 'staff']),
+    body('password').optional().isLength({ min: 6 }),
+  ],
   async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
+      /* If password provided, it will be hashed by the pre‑save hook
+         we trigger by setting `user.set()` and calling `user.save()`.   */
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ message: 'User not found' });
 
-      const user = await User.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        { new: true, runValidators: true }
-      ).populate('createdBy', 'name');
+      Object.assign(user, req.body);
+      await user.save(); // runs validators + pre‑save hash
+      await user.populate('createdBy', 'name');
 
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return res.json(user);
+    } catch (err) {
+      return res.status(500).json({ message: 'Server error', error: err.message });
     }
   }
 );
 
-// Deactivate user
+/* ==================================================================== */
+/*  PATCH /api/users/:id/deactivate  – set isActive false               */
+/*  PATCH /api/users/:id/activate    – set isActive true                */
+/* ==================================================================== */
 router.patch('/:id/deactivate', auth, authorize('admin'), async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ message: 'User deactivated successfully', user });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isActive: false },
+    { new: true }
+  );
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  return res.json({ message: 'User deactivated successfully', user });
 });
 
-// Activate user
 router.patch('/:id/activate', auth, authorize('admin'), async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isActive: true },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ message: 'User activated successfully', user });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isActive: true },
+    { new: true }
+  );
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  return res.json({ message: 'User activated successfully', user });
 });
 
 module.exports = router;
