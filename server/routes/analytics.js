@@ -244,4 +244,102 @@ router.get(
   }
 );
 
+
+/* =================================================================== */
+/*  POST /api/analytics/export   (admin, manager)                      */
+/* =================================================================== */
+/* ------------------------------------------------ EXPORT ---------------------------------------- */
+const exportHandler = async (req, res) => {
+  try {
+    // either ?format=pdf for GET OR {format:'pdf'} for POST
+    const format = (req.method === 'GET' ? req.query.format : req.body.format) ?? 'csv';
+
+    /* ---- gather the numbers (exactly the same as your GET /api/analytics route) ---- */
+    const [
+      [{ totalItems = 0, lowStockItems = 0, totalValue = 0 } = {}],
+      categoryBuckets
+    ] = await Promise.all([
+      Inventory.aggregate([
+        { $group: {
+            _id: null,
+            totalItems: { $sum: 1 },
+            lowStockItems: { $sum: { $cond: [{ $lte: ['$quantity', '$reorderLevel'] }, 1, 0] } },
+            totalValue: { $sum: { $multiply: ['$quantity', '$unitPrice'] } }
+        }},
+        { $project: { _id: 0 }}
+      ]),
+      Inventory.aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }])
+    ]);
+
+    const categoryCounts = Object.fromEntries(
+      categoryBuckets.map(({ _id, count }) => [_id, count])
+    );
+
+    /* ---------- PDF ---------- */
+    if (format === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      res.type('application/pdf').attachment('analytics-export.pdf');
+      const doc = new PDFDocument({ margin: 40, size: 'A4' });
+      doc.pipe(res);
+
+      doc.fontSize(18).text('Analytics Export', { align: 'center' }).moveDown();
+      doc.fontSize(12)
+         .text(`Total Items: ${totalItems}`)
+         .text(`Low‑Stock Items: ${lowStockItems}`)
+         .text(`Total Inventory Value: ${totalValue.toLocaleString()}`)
+         .moveDown()
+         .fontSize(14).text('Category Breakdown').moveDown(0.5)
+         .fontSize(10);
+
+      for (const [cat, cnt] of Object.entries(categoryCounts)) doc.text(`${cat}: ${cnt}`);
+
+      doc.end();            // closes the response stream
+      return;               // IMPORTANT: don’t fall through
+    }
+
+    /* ---------- Excel ---------- */
+    if (format === 'xlsx' || format === 'excel') {
+      const ExcelJS = require('exceljs');
+      const wb  = new ExcelJS.Workbook();
+      const ws  = wb.addWorksheet('Analytics');
+
+      ws.columns = [
+        { header: 'Metric',   key: 'metric', width: 24 },
+        { header: 'Value',    key: 'value',  width: 16 }
+      ];
+      ws.addRows([
+        ['Total Items',       totalItems],
+        ['Low‑Stock Items',   lowStockItems],
+        ['Total Value',       totalValue]
+      ]);
+      ws.addRow([]);
+      ws.addRow(['Category', 'Count']);
+      for (const [cat, cnt] of Object.entries(categoryCounts)) ws.addRow([cat, cnt]);
+
+      res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+         .attachment('analytics-export.xlsx');
+      await wb.xlsx.write(res);   // this ends the response
+      return;
+    }
+
+    /* ---------- CSV (fallback) ---------- */
+    res.type('text/csv; charset=utf-8').attachment('analytics-export.csv');
+    let csv = 'Analytics Export\n';
+    csv    += `Total Items,${totalItems}\n`;
+    csv    += `Low‑Stock Items,${lowStockItems}\n`;
+    csv    += `Total Value,${totalValue}\n\nCategory,Count\n`;
+    for (const [cat, cnt] of Object.entries(categoryCounts)) csv += `${cat},${cnt}\n`;
+    res.send(csv);
+  } catch (err) {
+    console.error('analytics export error', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+/* expose the same handler on BOTH verbs so links & XHRs work */
+router
+  .post('/export', auth, authorize('admin', 'manager'), exportHandler)
+  .get ('/export', auth, authorize('admin', 'manager'), exportHandler);
+
+
 module.exports = router;

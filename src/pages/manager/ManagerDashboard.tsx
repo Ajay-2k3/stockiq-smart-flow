@@ -34,6 +34,8 @@ import {
 import { useApi } from '@/hooks/useApi';
 import { toast } from 'sonner';
 
+import { ExportAnalytics } from '@/components/manager/ExportAnalytics';
+
 const COLORS = [
   'hsl(var(--primary))',
   'hsl(var(--success))',
@@ -56,6 +58,7 @@ export default function ManagerDashboard() {
     activeAlerts: 0,
     alertsChange: 0,
   });
+  const [showExport, setShowExport] = useState(false);
 
   /* ---------------- fetch ---------------- */
   const fetchAnalytics = async () => {
@@ -131,7 +134,21 @@ export default function ManagerDashboard() {
             Analytics and performance insights
           </p>
         </div>
-        <Button>Export Analytics</Button>
+        <Button onClick={() => setShowExport(true)}>Export Analytics</Button>
+        {showExport && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-4 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowExport(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <ExportAnalytics />
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* key metrics */}

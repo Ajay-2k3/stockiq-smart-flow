@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Download, FileSpreadsheet, FileText, Image } from 'lucide-react';
-import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
+import { downloadExport } from '@/utils/downloadExport';   // 👈 NEW
 
 export const ExportAnalytics: React.FC = () => {
   const [exportFormat, setExportFormat] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
-  const api = useApi();
   const { toast } = useToast();
 
+  /** Available formats – change csv ➜ png if you actually return images */
   const exportFormats = [
-    { value: 'xlsx', label: 'Excel Spreadsheet', icon: FileSpreadsheet },
-    { value: 'pdf', label: 'PDF Report', icon: FileText },
-    { value: 'png', label: 'Chart Images', icon: Image },
+    { value: 'pdf',  label: 'PDF Report',        icon: FileText },
+    { value: 'csv',  label: 'Chart Data (CSV)',  icon: Image },
   ];
 
   const handleExportAnalytics = async () => {
@@ -30,30 +40,12 @@ export const ExportAnalytics: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const response = await api.post('/analytics/export', {
-        format: exportFormat,
-      });
-
-      // Create download link
-      const mimeTypes = {
-        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        pdf: 'application/pdf',
-        png: 'application/zip',
-      };
-
-      const blob = new Blob([response.data], { type: mimeTypes[exportFormat as keyof typeof mimeTypes] });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `analytics-export-${new Date().toISOString().split('T')[0]}.${exportFormat === 'png' ? 'zip' : exportFormat}`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-
+      await downloadExport(exportFormat as 'pdf' | 'xlsx' | 'csv');
       toast({
         title: 'Success',
         description: 'Analytics exported successfully',
       });
-    } catch (error) {
+    } catch (err) {
       toast({
         title: 'Error',
         description: 'Failed to export analytics',
@@ -68,23 +60,26 @@ export const ExportAnalytics: React.FC = () => {
     <Card className="bg-white shadow-md rounded-2xl border">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-          <Download className="h-5 w-5" />
-          Export Analytics
+          <Download className="h-5 w-5" /> Export Analytics
         </CardTitle>
       </CardHeader>
+
       <CardContent className="space-y-6">
+        {/* Format Picker */}
         <div>
-          <label className="text-sm font-medium mb-2 block">Export Format</label>
+          <label className="text-sm font-medium mb-2 block">
+            Export Format
+          </label>
           <Select value={exportFormat} onValueChange={setExportFormat}>
             <SelectTrigger>
               <SelectValue placeholder="Select export format" />
             </SelectTrigger>
             <SelectContent>
-              {exportFormats.map((format) => (
-                <SelectItem key={format.value} value={format.value}>
+              {exportFormats.map(({ value, label, icon: Icon }) => (
+                <SelectItem key={value} value={value}>
                   <div className="flex items-center gap-2">
-                    <format.icon className="h-4 w-4" />
-                    {format.label}
+                    <Icon className="h-4 w-4" />
+                    {label}
                   </div>
                 </SelectItem>
               ))}
@@ -92,6 +87,7 @@ export const ExportAnalytics: React.FC = () => {
           </Select>
         </div>
 
+        {/* What’s included */}
         <div className="space-y-2">
           <h4 className="text-sm font-medium">Export includes:</h4>
           <ul className="text-sm text-muted-foreground space-y-1">
@@ -102,13 +98,14 @@ export const ExportAnalytics: React.FC = () => {
           </ul>
         </div>
 
+        {/* Action button */}
         <Button
           onClick={handleExportAnalytics}
           disabled={isExporting}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
         >
           {isExporting ? (
-            'Exporting...'
+            'Exporting…'
           ) : (
             <>
               <Download className="mr-2 h-4 w-4" />
