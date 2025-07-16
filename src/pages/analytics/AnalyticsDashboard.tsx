@@ -28,6 +28,7 @@ export default function AnalyticsDashboard() {
     try {
       const data = await get('/analytics');
       setAnalytics(data);
+      console.log('Analytics data:', data);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
     } finally {

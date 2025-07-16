@@ -1,42 +1,125 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, AlertTriangle, TrendingUp, BarChart3 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  Package,
+  AlertTriangle,
+  TrendingUp,
+  BarChart3,
+} from 'lucide-react';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import { useApi } from '@/hooks/useApi';
+import { toast } from 'sonner';
 
-const categoryData = [
-  { name: 'Electronics', value: 45, color: 'hsl(var(--primary))' },
-  { name: 'Accessories', value: 30, color: 'hsl(var(--success))' },
-  { name: 'Components', value: 15, color: 'hsl(var(--warning))' },
-  { name: 'Others', value: 10, color: 'hsl(var(--danger))' },
+const COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--success))',
+  'hsl(var(--warning))',
+  'hsl(var(--danger))',
 ];
-
-const performanceData = [
-  { day: 'Mon', efficiency: 85, orders: 45 },
-  { day: 'Tue', efficiency: 92, orders: 52 },
-  { day: 'Wed', efficiency: 78, orders: 38 },
-  { day: 'Thu', efficiency: 88, orders: 48 },
-  { day: 'Fri', efficiency: 95, orders: 65 },
-  { day: 'Sat', efficiency: 90, orders: 55 },
-  { day: 'Sun', efficiency: 82, orders: 42 },
-];
-
-const chartConfig = {
-  efficiency: {
-    label: 'Efficiency %',
-    color: 'hsl(var(--primary))',
-  },
-  orders: {
-    label: 'Orders',
-    color: 'hsl(var(--success))',
-  },
-};
 
 export default function ManagerDashboard() {
+  const api = useApi();
+
+  const [loading, setLoading] = useState(true);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [performanceData, setPerformanceData] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({
+    turnover: '--',
+    turnoverChange: '--',
+    accuracy: '--',
+    accuracyChange: '--',
+    activeAlerts: 0,
+    alertsChange: 0,
+  });
+
+  /* ---------------- fetch ---------------- */
+  const fetchAnalytics = async () => {
+    try {
+      const a = await api.get('/analytics');
+      console.log('📊 analytics payload', a);
+
+      // Pie chart data
+      const cat = a.inventoryStats?.categoryCounts ?? {};
+      const totalCat = Object.values(cat).reduce((s: any, n: any) => s + n, 0) || 1;
+      setCategoryData(
+        Object.entries(cat).map(([name, cnt]: any[], i) => ({
+          name,
+          value: +((cnt / totalCat) * 100).toFixed(1),
+          color: COLORS[i % COLORS.length],
+        }))
+      );
+
+      // Weekly performance data (from inventoryStats.weekTrends)
+      const weekTrends = a.inventoryStats?.weekTrends ?? [];
+      // Map to chart format: day, efficiency, orders
+      const perfData = weekTrends.map((w: any) => ({
+        day: w.date?.slice(5), // e.g. '07-16'
+        efficiency: w.quantity, // or compute a real efficiency metric if available
+        orders: w.value, // or use another metric if needed
+      }));
+      setPerformanceData(perfData);
+
+      // Suppliers
+      setSuppliers(a.supplierStats?.topSuppliers ?? []);
+
+      // KPIs
+      setMetrics({
+        turnover: (a.kpis?.turnover ?? 0).toFixed(2) + 'x',
+        turnoverChange: a.kpis?.turnoverChange ?? 0,
+        accuracy: (a.kpis?.accuracy ?? 0).toFixed(1) + '%',
+        accuracyChange: a.kpis?.accuracyChange ?? 0,
+        activeAlerts: a.kpis?.activeAlerts ?? 0,
+        alertsChange: a.kpis?.alertsChange ?? 0,
+      });
+    } catch (err) {
+      console.error('❌ analytics fetch error', err);
+      toast.error('Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  /* --------------- ui --------------- */
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-muted-foreground">
+        Loading analytics…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -48,55 +131,53 @@ export default function ManagerDashboard() {
             Analytics and performance insights
           </p>
         </div>
-        <Button>
-          Export Analytics
-        </Button>
+        <Button>Export Analytics</Button>
       </motion.div>
 
-      {/* Key Metrics */}
+      {/* key metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           {
             title: 'Inventory Turnover',
-            value: '2.4x',
-            change: '+0.3',
+            value: metrics.turnover,
+            change: metrics.turnoverChange,
             icon: TrendingUp,
             color: 'text-success',
           },
           {
             title: 'Stock Accuracy',
-            value: '94.2%',
-            change: '+1.8%',
+            value: metrics.accuracy,
+            change: metrics.accuracyChange,
             icon: BarChart3,
             color: 'text-primary',
           },
           {
             title: 'Active Alerts',
-            value: '12',
-            change: '-3',
+            value: metrics.activeAlerts,
+            change: metrics.alertsChange,
             icon: AlertTriangle,
             color: 'text-warning',
           },
-        ].map((metric, index) => (
+        ].map((m, i) => (
           <motion.div
-            key={metric.title}
+            key={m.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: i * 0.1 }}
           >
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
-                      {metric.title}
+                      {m.title}
                     </p>
-                    <p className="text-2xl font-bold">{metric.value}</p>
+                    <p className="text-2xl font-bold">{m.value}</p>
                     <Badge variant="outline" className="mt-2">
-                      {metric.change}
+                      {m.change}
                     </Badge>
                   </div>
-                  <metric.icon className={`w-8 h-8 ${metric.color}`} />
+                  <m.icon className={`w-8 h-8 ${m.color}`} />
                 </div>
               </CardContent>
             </Card>
@@ -104,93 +185,71 @@ export default function ManagerDashboard() {
         ))}
       </div>
 
-      {/* Charts Section */}
+      {/* charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>Inventory by Category</CardTitle>
-              <CardDescription>
-                Distribution of items across categories
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
+        {/* ---------- pie chart (wrapped) ---------- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Inventory by Category</CardTitle>
+            <CardDescription>
+              Distribution of items across categories
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {categoryData.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">
+                No category data available
+              </p>
+            ) : (
+              <ChartContainer
+                config={{ value: { label: '%', color: COLORS[0] } }}
+                className="h-[300px]"
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={categoryData}
+                      dataKey="value"
+                      nameKey="name"
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
                       outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="value"
+                      paddingAngle={4}
                     >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {categoryData.map((s) => (
+                        <Cell key={s.name} fill={s.color} />
                       ))}
                     </Pie>
-                    <ChartTooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="rounded-lg border bg-background p-2 shadow-md">
-                              <div className="grid gap-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-muted-foreground">
-                                    {payload[0].payload.name}
-                                  </span>
-                                  <span className="font-bold">
-                                    {payload[0].value}%
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
                   </PieChart>
                 </ResponsiveContainer>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                {categoryData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <span className="text-sm font-medium">{item.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {item.value}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Performance</CardTitle>
-              <CardDescription>
-                Efficiency and order processing trends
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
+        {/* ---------- weekly area chart ---------- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Weekly Performance</CardTitle>
+            <CardDescription>
+              Efficiency and order trends
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {performanceData.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">
+                No performance data
+              </p>
+            ) : (
+              <ChartContainer
+                config={{
+                  efficiency: { label: 'Efficiency %', color: COLORS[0] },
+                  orders: { label: 'Orders', color: COLORS[1] },
+                }}
+                className="h-[300px]"
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={performanceData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -200,41 +259,43 @@ export default function ManagerDashboard() {
                     <Area
                       type="monotone"
                       dataKey="efficiency"
-                      stroke="var(--color-efficiency)"
-                      fill="var(--color-efficiency)"
-                      fillOpacity={0.3}
+                      stroke={COLORS[0]}
+                      fill={COLORS[0]}
+                      fillOpacity={0.25}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="orders"
+                      stroke={COLORS[1]}
+                      fill={COLORS[1]}
+                      fillOpacity={0.15}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Supplier Performance */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Performing Suppliers</CardTitle>
-            <CardDescription>
-              Reliability and delivery performance metrics
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* suppliers */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Performing Suppliers</CardTitle>
+          <CardDescription>
+            Reliability and delivery performance metrics
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {suppliers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-12">
+              No supplier data yet
+            </p>
+          ) : (
             <div className="space-y-4">
-              {[
-                { name: 'TechCorp Solutions', score: 98, deliveries: 45, onTime: 96 },
-                { name: 'Global Electronics', score: 95, deliveries: 38, onTime: 94 },
-                { name: 'Smart Components', score: 92, deliveries: 52, onTime: 89 },
-                { name: 'Digital Systems', score: 88, deliveries: 31, onTime: 85 },
-              ].map((supplier, index) => (
+              {suppliers.map((s) => (
                 <div
-                  key={supplier.name}
+                  key={s.name}
                   className="flex items-center justify-between p-4 rounded-lg border"
                 >
                   <div className="flex items-center gap-4">
@@ -242,35 +303,33 @@ export default function ManagerDashboard() {
                       <Package className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">{supplier.name}</p>
+                      <p className="font-medium">{s.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {supplier.deliveries} deliveries
+                        {s.itemCount} items
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={supplier.score >= 95 ? 'default' : 'secondary'}
-                        className={
-                          supplier.score >= 95
-                            ? 'bg-success/10 text-success'
-                            : 'bg-warning/10 text-warning'
-                        }
-                      >
-                        {supplier.score}% Score
-                      </Badge>
-                    </div>
+                    <Badge
+                      variant={s.score >= 95 ? 'default' : 'secondary'}
+                      className={
+                        s.score >= 95
+                          ? 'bg-success/10 text-success'
+                          : 'bg-warning/10 text-warning'
+                      }
+                    >
+                      {s.score}% Score
+                    </Badge>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {supplier.onTime}% On-time
+                      {s.onTime}% On‑time
                     </p>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

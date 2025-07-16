@@ -38,24 +38,37 @@ export default function InventoryPage() {
   const canEdit = user?.role === 'admin' || user?.role === 'manager';
 
   /* ------------ Fetch ------------ */
-  const fetchInventory = async () => {
-    setLoading(true);
-    try {
-      const data = await get(`/inventory?_=${Date.now()}`); // cache‑buster
-      setInventory(
-        Array.isArray(data)
-          ? data
-          : Array.isArray(data?.inventory)
-          ? data.inventory
-          : []
-      );
-    } catch (err) {
-      toast.error('Failed to fetch inventory');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+/* ------------ Fetch (only this block changed) ------------ */
+const fetchInventory = async () => {
+  setLoading(true);
+  try {
+    const res = await get(`/inventory?_=${Date.now()}`);       // cache‑buster
+    const list = Array.isArray(res) ? res : res?.inventory ?? [];
+
+    /* 🔄  Normalise each record so the UI never sees undefined fields */
+    const normalised = list.map((it: any) => ({
+      ...it,
+      /* back‑compat: some older items still have unitPrice only */
+      price: it.price ?? it.unitPrice ?? 0,
+      stockStatus:
+        it.stockStatus ??
+        (it.quantity === 0
+          ? 'out-of-stock'
+          : it.quantity <= it.reorderLevel
+          ? 'low-stock'
+          : 'in-stock'),
+    }));
+
+    setInventory(normalised);
+  } catch (err) {
+    toast.error('Failed to fetch inventory');
+    console.error(err);
+    setInventory([]);      // graceful fallback
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchInventory();

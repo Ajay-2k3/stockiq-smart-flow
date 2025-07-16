@@ -1,27 +1,25 @@
-import { useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// ✅ Create Axios instance with custom status handling
+// ✅ Create Axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  validateStatus: (status) => status < 400 || status === 409 // ⬅️ Don't throw for 409
+  validateStatus: (status) => status < 400 || status === 409
 });
 
-// ✅ Hook: wraps Axios with optional auth
+// ✅ Hook
 export const useApi = () => {
   const { user } = useAuth();
 
-  useEffect(() => {
-    const token = localStorage.getItem('stockiq_token');
-    if (user && token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      delete api.defaults.headers.common['Authorization'];
-    }
-  }, [user]);
+  // ✅ Immediately set Authorization header if user/token exist
+  const token = localStorage.getItem('stockiq_token');
+  if (user && token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
 
   // ✅ Utility to extract .data safely
   const handleResponse = <T>(promise: Promise<any>): Promise<T> =>
