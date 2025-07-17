@@ -35,7 +35,7 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { post, put } = useApi();
+  // Remove direct API calls; parent handles save
 
   useEffect(() => {
     if (supplier) {
@@ -59,28 +59,12 @@ export function SupplierForm({ supplier, onSave, onCancel }: SupplierFormProps) 
     }
   }, [supplier]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    try {
-      if (supplier) {
-        await put(`/suppliers/${supplier._id}`, formData);
-        toast({ title: "Success", description: "Supplier updated successfully" });
-      } else {
-        await post('/suppliers', formData);
-        toast({ title: "Success", description: "Supplier created successfully" });
-      }
-      onSave(formData);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to save supplier",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    // Only call onSave, let parent handle API and toast
+    onSave(formData);
+    setLoading(false);
   };
 
   const handleChange = (field: string, value: any) => {
